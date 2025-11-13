@@ -99,3 +99,26 @@ SELECT *
 FROM hotel_bookings
 WHERE lead_time >= 90
 ORDER BY lead_time DESC;
+
+--Revenue Optimization Queries--
+SELECT hotel, AVG(revenue) AS avg_revenue_per_booking
+FROM hotel_bookings
+GROUP BY hotel;
+
+SELECT arrival_date_month, AVG(revenue) AS avg_revenue_per_booking
+FROM hotel_bookings
+GROUP BY arrival_date_month
+ORDER BY avg_revenue_per_booking DESC;
+
+SELECT market_segment, AVG(revenue) AS avg_revenue_per_booking
+FROM hotel_bookings
+GROUP BY market_segment
+ORDER BY avg_revenue_per_booking DESC;
+
+SELECT total_of_special_requests, AVG(revenue) AS avg_revenue_per_booking
+FROM hotel_bookings
+GROUP BY total_of_special_requests
+ORDER BY total_of_special_requests DESC;
+
+
+
