@@ -67,3 +67,35 @@ FROM hotel_bookings
 GROUP BY lead_time_category
 ORDER BY cancel_rate_percent DESC;
 
+--Customer Segmentation Queries--
+
+--1) High-Risk Customers (For Deposit Policy)
+SELECT *
+FROM hotel_bookings
+WHERE previous_cancellations > 1
+ORDER BY previous_cancellations DESC;
+
+
+--2) Loyal Customers (For Loyalty Programs)
+SELECT *
+FROM hotel_bookings
+WHERE previous_bookings_not_canceled > 3
+ORDER BY previous_bookings_not_canceled DESC;
+
+--3) Special Requests Customers (For Personalized Services)
+SELECT *
+FROM hotel_bookings
+WHERE total_of_special_requests >= 2
+ORDER BY total_of_special_requests DESC;
+
+--4) Last-Minute Bookers (For Targeted Marketing)
+SELECT *
+FROM hotel_bookings
+WHERE lead_time <= 7
+ORDER BY lead_time ASC;
+
+--5) Long-Term Planners (For Early Bird Offers)
+SELECT *
+FROM hotel_bookings
+WHERE lead_time >= 90
+ORDER BY lead_time DESC;
