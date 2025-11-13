@@ -41,7 +41,6 @@ FROM hotel_bookings
 GROUP BY market_segment
 ORDER BY cancel_rate_percent DESC;
 
-
 SELECT previous_cancellations, ROUND(AVG(is_canceled)*100,2) AS current_cancel_rate
 FROM hotel_bookings
 GROUP BY previous_cancellations
@@ -52,12 +51,10 @@ FROM hotel_bookings
 GROUP BY previous_bookings_not_canceled
 ORDER BY previous_bookings_not_canceled DESC;
 
-
 SELECT total_of_special_requests, ROUND(AVG(is_canceled)*100,2) AS cancel_rate_percent
 FROM hotel_bookings
 GROUP BY total_of_special_requests
 ORDER BY total_of_special_requests DESC;
-
 
 SELECT CASE
          WHEN lead_time <= 7 THEN 'Last Minute (0-7 days)'
@@ -69,5 +66,4 @@ SELECT CASE
 FROM hotel_bookings
 GROUP BY lead_time_category
 ORDER BY cancel_rate_percent DESC;
-
 
