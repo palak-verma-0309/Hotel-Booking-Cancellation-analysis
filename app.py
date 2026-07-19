@@ -1,159 +1,155 @@
-import streamlit as st
-import pandas as pd
-import pickle
-import urllib.parse
-import os
-from dotenv import load_dotenv
-import ai
 import datetime
+import os
+import pickle
+
+import pandas as pd
+import streamlit as st
+from dotenv import load_dotenv
+
+import ai
+
 
 load_dotenv()
 
-st.set_page_config(page_title="Hotel Booking", layout="wide")
+st.set_page_config(page_title="Booking check", page_icon="✦", layout="wide")
+st.markdown(
+    """
+    <style>
+        :root { --ink: #18211d; --muted: #68736d; --paper: #f7f7f2; --line: #dde2d9; --green: #236344; --amber: #a44e25; }
+        .stApp { background: linear-gradient(135deg, #f8f8f3 0%, #f3f6f0 100%); color: var(--ink); }
+        [data-testid="stSidebar"] { background: #c8d9c9; border-right: 1px solid #abc1ae; min-width: 340px; }
+        [data-testid="stSidebar"] > div:first-child { min-width: 340px; }
+        [data-testid="stSidebar"] > div:first-child { padding-top: 2rem; }
+        h1 { font-size: 2.25rem !important; letter-spacing: -.055em; margin-bottom: .15rem !important; }
+        h2, h3 { letter-spacing: -.025em; }
+        .eyebrow { color: var(--green); font-size: .72rem; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; }
+        .subtitle { color: var(--muted); font-size: 1rem; margin-bottom: 1.8rem; }
+        .card { background: #fffefb; border: 1px solid var(--line); border-radius: 12px; padding: 1.35rem; min-height: 148px; box-shadow: 0 8px 22px rgba(30, 62, 42, .055); }
+        .card-label { color: var(--muted); font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+        .score { font-size: 2.3rem; font-weight: 700; letter-spacing: -.06em; line-height: 1.15; margin: .35rem 0; }
+        .note { color: var(--muted); font-size: .9rem; }
+        .stButton > button { background: #236344; border: 1px solid #236344; border-radius: 7px; color: white; font-weight: 650; padding: .55rem 1rem; box-shadow: 0 4px 10px rgba(35, 99, 68, .18); }
+        .stButton > button:hover { background: var(--green); border-color: var(--green); color: white; }
+        [data-testid="stMetric"] { background: #fffefb; border: 1px solid var(--line); border-radius: 10px; padding: .8rem; box-shadow: 0 5px 14px rgba(30, 62, 42, .04); }
+        [data-testid="stMetricValue"] { color: var(--green); }
+        [data-testid="stSidebar"] [data-testid="stCaptionContainer"] p { color: #397354; font-weight: 750; letter-spacing: .08em; }
+        [data-testid="stSidebar"] [data-testid="stTextInput"], [data-testid="stSidebar"] [data-testid="stSelectbox"], [data-testid="stSidebar"] [data-testid="stNumberInput"] { background: rgba(255, 255, 255, .35); border-radius: 7px; }
+        hr { border-color: var(--line); }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 
 @st.cache_resource
 def load_resources():
     try:
-        with open('rf_model.pkl', 'rb') as f:
-            model = pickle.load(f)
-        with open('encoders.pkl', 'rb') as f:
-            encoders = pickle.load(f)
+        with open("rf_model.pkl", "rb") as file:
+            model = pickle.load(file)
+        with open("encoders.pkl", "rb") as file:
+            encoders = pickle.load(file)
         return model, encoders
     except FileNotFoundError:
         return None, None
 
+
 model, encoders = load_resources()
-
-st.sidebar.title("Customer Details")
-
-if not model:
-    st.error("Model files not found.")
+if model is None:
+    st.error("The prediction model could not be found.")
     st.stop()
-customer_name = st.sidebar.text_input("Customer Name")
-name = customer_name if customer_name else "Guest"
-customer_email = st.sidebar.text_input("Customer Email")
-booking_date = st.sidebar.date_input("Booking Date", datetime.date.today())
 
-arrival_date = st.sidebar.date_input("Arrival Date")
+with st.sidebar:
+    st.markdown("<p class='eyebrow'>Booking desk</p>", unsafe_allow_html=True)
+    st.title("Guest details")
+    customer_name = st.text_input("Guest name", placeholder="e.g. Maya Shah")
+    customer_email = st.text_input("Email", placeholder="maya@example.com")
+
+    st.markdown("---")
+    st.caption("STAY")
+    booking_date = st.date_input("Booked on", datetime.date.today())
+    arrival_date = st.date_input("Arrival", min_value=booking_date)
+    hotel = st.selectbox("Property", encoders["hotel"].classes_)
+    total_stay = st.number_input("Nights", min_value=1, value=3)
+    adr = st.number_input("Nightly rate (₹)", min_value=0.0, value=100.0)
+
+    st.markdown("---")
+    st.caption("CONTEXT")
+    market_segment = st.selectbox("Market segment", encoders["market_segment"].classes_)
+    country = st.selectbox("Country", encoders["country"].classes_)
+    special_requests = st.number_input("Special requests", min_value=0, value=0)
+    booking_changes = st.number_input("Booking changes", min_value=0, value=0)
+
+    st.markdown("---")
+    st.caption("HISTORY")
+    prev_cancellations = st.number_input("Previous cancellations", min_value=0, value=0)
+    prev_bookings = st.number_input("Previous completed stays", min_value=0, value=0)
+
+    run_check = st.button("Check booking", use_container_width=True)
 
 lead_time = (arrival_date - booking_date).days
 arrival_day = arrival_date.day
 arrival_month = arrival_date.strftime("%B")
+name = customer_name.strip() or "Guest"
 
-st.sidebar.write(f"Lead Time: **{lead_time} days**")
-st.sidebar.write(f"Arrival Day: **{arrival_day}**")
-st.sidebar.write(f"Arrival Month: **{arrival_month}**")
-hotel = st.sidebar.selectbox("Hotel Type", encoders['hotel'].classes_)
-market_segment = st.sidebar.selectbox("Market Segment", encoders['market_segment'].classes_)
-country = st.sidebar.selectbox("Country", encoders['country'].classes_, index=0)
+st.markdown("<p class='eyebrow'>Operations / cancellation likelihood</p>", unsafe_allow_html=True)
+st.title("A quick read on this booking.")
+st.markdown("<p class='subtitle'>Use the signal to decide whether the guest needs a thoughtful nudge.</p>", unsafe_allow_html=True)
 
-total_stay = st.sidebar.number_input("Total Stay (nights)", value=3)
-adr = st.sidebar.number_input("Price per Night (ADR)", value=100.0)
-special_requests = st.sidebar.number_input("Special Requests", value=0)
-booking_changes = st.sidebar.number_input("Booking Changes", value=0)
+overview = st.columns(3)
+overview[0].metric("Arrival", arrival_date.strftime("%d %b %Y"))
+overview[1].metric("Lead time", f"{lead_time} days")
+overview[2].metric("Stay value", f"₹{adr * total_stay:,.0f}")
 
-st.sidebar.markdown("---")
-st.sidebar.subheader("History (For Loyalty)")
-prev_cancellations = st.sidebar.number_input("Past Cancellations", value=0)
-prev_bookings = st.sidebar.number_input("Past Successful Bookings", value=0)
-
-hf_token = os.getenv("HF_TOKEN")
-
-st.title("Hotel Booking Cancellation Risk Analyzer")
-
-if "show_results" not in st.session_state:
-    st.session_state.show_results = False
-
-if st.button("Analyze Booking Risk"):
-    st.session_state.show_results = True
-
-if st.session_state.show_results:
-
+if run_check:
     input_df = pd.DataFrame({
-        'hotel': [hotel], 'lead_time': [lead_time], 'arrival_date_month': [arrival_month],
-        'arrival_date_day_of_month': [arrival_day], 'total_stay': [total_stay],
-        'market_segment': [market_segment], 'country': [country],
-        'previous_cancellations': [prev_cancellations], 'booking_changes': [booking_changes],
-        'total_of_special_requests': [special_requests], 'adr': [adr]
+        "hotel": [hotel], "lead_time": [lead_time], "arrival_date_month": [arrival_month],
+        "arrival_date_day_of_month": [arrival_day], "total_stay": [total_stay],
+        "market_segment": [market_segment], "country": [country],
+        "previous_cancellations": [prev_cancellations], "booking_changes": [booking_changes],
+        "total_of_special_requests": [special_requests], "adr": [adr],
     })
+    for column, encoder in encoders.items():
+        input_df[column] = encoder.transform(input_df[column].astype(str))
 
-    for col, enc in encoders.items():
-        input_df[col] = enc.transform(input_df[col].astype(str))
+    cancellation_probability = model.predict_proba(input_df)[0][1]
+    is_risky = model.predict(input_df)[0] == 1
+    loyalty = "Returning guest" if prev_bookings else "First stay"
+    if prev_cancellations:
+        loyalty = f"{prev_cancellations} earlier cancellation{'s' if prev_cancellations != 1 else ''}"
 
-    pred = model.predict(input_df)[0]
-    prob = model.predict_proba(input_df)[0][1]
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.subheader("Prediction")
-        if pred == 1:
-            st.error(f" High Cancellation Risk ({prob:.0%} chance)")
-            is_risky = True
-        else:
-            st.success(f"Safe Booking ({1-prob:.0%} chance)")
-            is_risky = False
-
-    with col2:
-        st.subheader("Loyalty Check")
-        if prev_bookings > 0 and prev_cancellations == 0:
-            st.balloons()
-            st.info(f"Loyal Customer! ({prev_bookings} past stays). Award 500 Points.")
-        elif prev_cancellations > 0:
-            st.warning("High Risk History. No points.")
-        else:
-            st.write("New Customer.")
+    st.markdown("<br>", unsafe_allow_html=True)
+    left, right = st.columns((1.15, 1))
+    with left:
+        label = "Needs attention" if is_risky else "Looks steady"
+        tone = "var(--amber)" if is_risky else "var(--green)"
+        description = "A personal confirmation or flexible option may help secure this stay." if is_risky else "No immediate outreach is needed based on this booking profile."
+        st.markdown(
+            f"<div class='card'><div class='card-label'>Cancellation risk</div>"
+            f"<div class='score' style='color:{tone}'>{cancellation_probability:.0%}</div>"
+            f"<strong>{label}</strong><br><span class='note'>{description}</span></div>",
+            unsafe_allow_html=True,
+        )
+    with right:
+        st.markdown(
+            f"<div class='card'><div class='card-label'>Guest context</div>"
+            f"<div class='score'>{loyalty}</div>"
+            f"<span class='note'>{prev_bookings} completed stay{'s' if prev_bookings != 1 else ''} on record · {special_requests} special request{'s' if special_requests != 1 else ''}</span></div>",
+            unsafe_allow_html=True,
+        )
 
     if is_risky:
-        st.markdown("---")
-        st.subheader("Customer Retention Plan")
+        details = {"market_segment": market_segment, "lead_time": lead_time, "country": country}
+        with st.spinner("Preparing a retention idea…"):
+            strategy = ai.get_retention_strategy(os.getenv("HF_TOKEN"), details)
 
-        with st.spinner("AI is generating a custom offer..."):
-            details = {"market_segment": market_segment, "lead_time": lead_time, "country": country}
-            strategy_text = ai.get_retention_strategy(hf_token, details)
-            st.info(f"**Insight:** {strategy_text}")
-        st.markdown("---")
-        st.subheader("Booking Summary")
-
-        st.write(f"**Guest Name:** {name}")
-        st.write(f"**Hotel:** {hotel}")
-        st.write(f"**Arrival Date:** {arrival_date}")
-        st.write(f"**Total Stay:** {total_stay} nights")
-        st.write(f"**ADR:** ₹{adr}")
-        st.write(f"**Lead Time:** {lead_time} days")
-
-        st.markdown("---")
-        st.subheader("Customer Outreach")
-
-        if "msg_format" not in st.session_state:
-            st.session_state.msg_format = "WhatsApp Format"
-
-        format_type = st.radio(
-            "Choose Message Format",
-            ["WhatsApp Format", "Email Format"],
-            index=0 if st.session_state.msg_format == "WhatsApp Format" else 1,
-            horizontal=True,
-            key="msg_format"
-        )
-
-        whatsapp_msg = (
-            f"Hi {name}, We noticed your upcoming stay at {hotel} may need confirmation.\n\n"
-            f"Special Offer: {strategy_text}\n\n"
-            f"Reply 'YES' to claim this offer!\n\n"
-            f"Best regards,\nGuest Services"
-        )
-        email_msg = (
-            f"Dear {name},\n\n"
-            f"We noticed that your booking at {hotel} may not be fully confirmed yet.\n"
-            f"To help you finalize, we are pleased to offer:\n\n"
-            f"{strategy_text}\n\n"
-            f"Please reply to this email to claim the offer.\n\n"
-            f"Warm regards,\nGuest Services Team"
-        )
-
-        st.write("### Message Preview")
-        if st.session_state.msg_format == "WhatsApp Format":
-            final_msg = st.text_area("WhatsApp Message", whatsapp_msg, height=200, key="wa_msg")
+        st.markdown("### Suggested next step")
+        st.info(strategy)
+        st.markdown("### Ready-to-send note")
+        channel = st.radio("Channel", ["WhatsApp", "Email"], horizontal=True, label_visibility="collapsed")
+        if channel == "WhatsApp":
+            message = f"Hi {name}, we're looking forward to welcoming you to {hotel}. {strategy} Reply YES and we'll take care of the rest. — Guest Services"
         else:
-            final_msg = st.text_area("Email Message", email_msg, height=250, key="email_msg")
-        
+            message = f"Dear {name},\n\nWe're looking forward to your stay at {hotel}. {strategy}\n\nReply to this email and our team will be happy to help.\n\nGuest Services"
+        st.text_area("Message", message, height=140)
+else:
+    st.caption("Complete the details in the sidebar, then select **Check booking**.")
